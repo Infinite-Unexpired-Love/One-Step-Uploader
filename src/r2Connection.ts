@@ -1,12 +1,13 @@
 /**
- * R2 uploader module using AWS SDK v3
+ * R2 Connection module using AWS SDK v3
  */
 
 import { S3Client, PutObjectCommand, HeadBucketCommand } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
-import { Logger } from "./logger";
+import { Connection } from "./connection";
 import { R2UploaderSettings } from "./settings";
 import { wrapError, retryWithBackoff } from "./utils";
+import { Logger } from "./logger";
 
 const logger = Logger.getInstance();
 
@@ -17,22 +18,22 @@ export interface UploadResult {
   error?: string;
 }
 
-export class R2Uploader {
+export class R2Connection extends Connection<R2UploaderSettings> {
   private client: S3Client | null = null;
-  private settings: R2UploaderSettings;
 
   constructor(settings: R2UploaderSettings) {
-    this.settings = settings;
-    this.initializeClient();
+    super(settings);
+    this.initialize();
   }
 
   /**
-   * Initialize S3 client for R2
+   * Initialize the R2 connection
    */
-  private initializeClient(): void {
+  public initialize(): void {
     try {
       if (!this.settings.r2AccessKeyId || !this.settings.r2SecretAccessKey) {
         logger.warn("R2 credentials not configured");
+        this.client = null;
         return;
       }
 
@@ -55,17 +56,9 @@ export class R2Uploader {
   }
 
   /**
-   * Update settings and reinitialize client
-   */
-  updateSettings(settings: R2UploaderSettings): void {
-    this.settings = settings;
-    this.initializeClient();
-  }
-
-  /**
    * Test R2 connection
    */
-  async testConnection(): Promise<void> {
+  public async testConnection(): Promise<void> {
     if (!this.client) {
       throw new Error("R2 client not initialized. Please check your credentials.");
     }
@@ -85,7 +78,7 @@ export class R2Uploader {
   /**
    * Upload file to R2
    */
-  async upload(buffer: Buffer, key: string, contentType: string): Promise<UploadResult> {
+  public async upload(buffer: Buffer, key: string, contentType: string): Promise<UploadResult> {
     if (!this.client) {
       return {
         success: false,
@@ -218,7 +211,7 @@ export class R2Uploader {
   }
 
   /**
-   * Check if uploader is configured
+   * Check if connection is configured
    */
   isConfigured(): boolean {
     return !!(
@@ -229,5 +222,20 @@ export class R2Uploader {
       this.settings.r2Endpoint &&
       this.settings.r2PublicBaseUrl
     );
+  }
+
+  /**
+   * Update settings and reinitialize
+   */
+  updateSettings(settings: R2UploaderSettings): void {
+    this.settings = settings;
+    this.initialize();
+  }
+
+  /**
+   * Static factory method to create R2Connection instance
+   */
+  static create(settings: R2UploaderSettings): R2Connection {
+    return new R2Connection(settings);
   }
 }

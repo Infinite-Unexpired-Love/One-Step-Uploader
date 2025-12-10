@@ -9,7 +9,8 @@ import {
   DEFAULT_SETTINGS,
   R2UploaderSettingTab,
 } from "./settings";
-import { R2Uploader } from "./r2Uploader";
+import { R2Connection } from "./r2Connection";
+import { MediaRepository } from "./mediaRepository";
 import { ImageProcessor, ImageProcessorOptions } from "./imageProcessor";
 import { MarkdownLinkRewriter } from "./markdownLinkRewriter";
 import { Logger } from "./logger";
@@ -23,7 +24,8 @@ const logger = Logger.getInstance();
 
 export default class R2ImageUploaderPlugin extends Plugin {
   settings: R2UploaderSettings;
-  private uploader: R2Uploader;
+  private r2Connection: R2Connection;
+  private mediaRepository: MediaRepository;
   private processor: ImageProcessor;
   private linkRewriter: MarkdownLinkRewriter;
 
@@ -34,7 +36,8 @@ export default class R2ImageUploaderPlugin extends Plugin {
     await this.loadSettings();
 
     // Initialize modules
-    this.uploader = new R2Uploader(this.settings);
+    this.r2Connection = R2Connection.create(this.settings);
+    this.mediaRepository = new MediaRepository(this.r2Connection);
     this.processor = new ImageProcessor();
     this.linkRewriter = new MarkdownLinkRewriter();
 
@@ -178,7 +181,7 @@ export default class R2ImageUploaderPlugin extends Plugin {
       editor.replaceSelection(localMarkdown + "\n");
 
       // Step 7: Upload to R2 (if enabled)
-      if (this.settings.enableUpload && this.uploader.isConfigured()) {
+      if (this.settings.enableUpload && this.r2Connection.isConfigured()) {
         await this.uploadAndReplace(
           arrayBuffer,
           fileName,
@@ -265,13 +268,13 @@ export default class R2ImageUploaderPlugin extends Plugin {
       const buffer = Buffer.from(arrayBuffer);
 
       // Generate upload key
-      const uploadKey = this.uploader.generateUploadKey(fileName);
+      const uploadKey = this.r2Connection.generateUploadKey(fileName);
 
       // Get content type
-      const contentType = this.uploader.getContentType(format);
+      const contentType = this.r2Connection.getContentType(format);
 
       // Upload with retry
-      const result = await this.uploader.uploadWithRetry(buffer, uploadKey, contentType);
+      const result = await this.r2Connection.uploadWithRetry(buffer, uploadKey, contentType);
 
       if (result.success && result.url) {
         // Replace local link with R2 URL
@@ -367,11 +370,11 @@ export default class R2ImageUploaderPlugin extends Plugin {
    * Test R2 connection
    */
   async testR2Connection(): Promise<void> {
-    if (!this.uploader.isConfigured()) {
+    if (!this.r2Connection.isConfigured()) {
       throw new Error("R2 is not fully configured. Please check all settings.");
     }
 
-    await this.uploader.testConnection();
+    await this.r2Connection.testConnection();
   }
 
   /**
@@ -380,9 +383,9 @@ export default class R2ImageUploaderPlugin extends Plugin {
   async loadSettings() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 
-    // Update uploader settings if already initialized
-    if (this.uploader) {
-      this.uploader.updateSettings(this.settings);
+    // Update R2 connection settings if already initialized
+    if (this.r2Connection) {
+      this.r2Connection.updateSettings(this.settings);
     }
   }
 
@@ -392,9 +395,9 @@ export default class R2ImageUploaderPlugin extends Plugin {
   async saveSettings() {
     await this.saveData(this.settings);
 
-    // Update uploader with new settings
-    if (this.uploader) {
-      this.uploader.updateSettings(this.settings);
+    // Update R2 connection with new settings
+    if (this.r2Connection) {
+      this.r2Connection.updateSettings(this.settings);
     }
 
     // Recheck format support
