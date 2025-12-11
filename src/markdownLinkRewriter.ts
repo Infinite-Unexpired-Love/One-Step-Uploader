@@ -3,7 +3,7 @@
  */
 
 import { Editor } from "obsidian";
-import { Logger } from "./logger";
+import { Logger } from "./utils/logger";
 
 const logger = Logger.getInstance();
 

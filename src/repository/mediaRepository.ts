@@ -2,8 +2,8 @@
  * Media Repository class
  */
 
-import { Connection } from "./connection";
-import { UploadResult } from "./r2Connection";
+import { Connection } from "../connection/connection";
+import { UploadResult } from "../connection/r2Connection";
 
 export class MediaRepository {
   private connection: Connection;
@@ -28,5 +28,12 @@ export class MediaRepository {
 
     // Perform the upload using the connection
     return await this.connection.upload(buffer, key, contentType);
+  }
+
+  /**
+   * Test the connection
+   */
+  async testConnection(): Promise<void> {
+    return await this.connection.testConnection();
   }
 }

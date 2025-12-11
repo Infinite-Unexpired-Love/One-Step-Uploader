@@ -3,9 +3,8 @@
  * Cross-platform compatible (Desktop + Mobile)
  */
 
-import { Logger } from "./logger";
-import { ImageFormat } from "./settings";
-import { wrapError, formatBytes } from "./utils";
+import { ImageFormat,ImageProcessingSettings } from "./settings/data";
+import { wrapError, formatBytes,ImageUtils,Logger } from "./utils";
 
 const logger = Logger.getInstance();
 
@@ -17,11 +16,9 @@ export interface ProcessedImage {
   size: number;
 }
 
-export interface ImageProcessorOptions {
-  format: ImageFormat;
-  quality: number;
-  maxWidth: number;
-  maxHeight: number;
+// Type alias for backwards compatibility - uses field names from settings structure
+export interface ImageProcessorOptions extends ImageProcessingSettings{
+  
 }
 
 export class ImageProcessor {
@@ -51,7 +48,7 @@ export class ImageProcessor {
       });
 
       // Step 2: Calculate target dimensions
-      const { width, height } = this.calculateDimensions(
+      const { width, height } = ImageUtils.calculateDimensions(
         originalWidth,
         originalHeight,
         options.maxWidth,
@@ -61,7 +58,7 @@ export class ImageProcessor {
       // Step 3: Create canvas and draw image
       const canvas = this.createCanvas(width, height);
       const ctx = canvas.getContext("2d") as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
-      
+
       if (!ctx) {
         throw new Error("Failed to get canvas context");
       }
@@ -71,18 +68,18 @@ export class ImageProcessor {
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = "high";
       }
-      
+
       ctx.drawImage(bitmap, 0, 0, width, height);
 
       // Clean up bitmap
       bitmap.close();
 
       // Step 4: Convert to target format
-      const blob = await this.canvasToBlob(canvas, options.format, options.quality);
+      const blob = await this.canvasToBlob(canvas, options.imageFormat, options.imageQuality);
 
       const processed: ProcessedImage = {
         blob,
-        format: options.format,
+        format: options.imageFormat,
         width,
         height,
         size: blob.size,
@@ -115,40 +112,6 @@ export class ImageProcessor {
   }
 
   /**
-   * Calculate target dimensions maintaining aspect ratio
-   */
-  private calculateDimensions(
-    originalWidth: number,
-    originalHeight: number,
-    maxWidth: number,
-    maxHeight: number
-  ): { width: number; height: number } {
-    // No limits set
-    if (maxWidth === 0 && maxHeight === 0) {
-      return { width: originalWidth, height: originalHeight };
-    }
-
-    let width = originalWidth;
-    let height = originalHeight;
-
-    // Apply max width constraint
-    if (maxWidth > 0 && width > maxWidth) {
-      const ratio = maxWidth / width;
-      width = maxWidth;
-      height = Math.round(height * ratio);
-    }
-
-    // Apply max height constraint
-    if (maxHeight > 0 && height > maxHeight) {
-      const ratio = maxHeight / height;
-      height = maxHeight;
-      width = Math.round(width * ratio);
-    }
-
-    return { width, height };
-  }
-
-  /**
    * Create canvas (OffscreenCanvas if available, fallback to HTMLCanvasElement)
    */
   private createCanvas(width: number, height: number): OffscreenCanvas | HTMLCanvasElement {
@@ -172,7 +135,7 @@ export class ImageProcessor {
     format: ImageFormat,
     quality: number
   ): Promise<Blob> {
-    const mimeType = this.getMimeType(format);
+    const mimeType = ImageUtils.getMimeType(format);
     const qualityValue = quality / 100; // Convert 0-100 to 0-1
 
     // OffscreenCanvas has convertToBlob method
@@ -197,88 +160,5 @@ export class ImageProcessor {
         qualityValue
       );
     });
-  }
-
-  /**
-   * Get MIME type from format
-   */
-  private getMimeType(format: ImageFormat): string {
-    const mimeTypes: Record<ImageFormat, string> = {
-      webp: "image/webp",
-      avif: "image/avif",
-      jpeg: "image/jpeg",
-      png: "image/png",
-    };
-
-    return mimeTypes[format] || "image/jpeg";
-  }
-
-  /**
-   * Validate if file is a valid image
-   */
-  async validateImage(file: File | Blob): Promise<boolean> {
-    try {
-      const bitmap = await createImageBitmap(file);
-      bitmap.close();
-      return true;
-    } catch (error) {
-      logger.warn("Invalid image file", error);
-      return false;
-    }
-  }
-
-  /**
-   * Get image metadata without full processing
-   */
-  async getMetadata(
-    file: File | Blob
-  ): Promise<{ width: number; height: number; type: string }> {
-    try {
-      const bitmap = await createImageBitmap(file);
-      const metadata = {
-        width: bitmap.width,
-        height: bitmap.height,
-        type: file.type,
-      };
-      bitmap.close();
-      return metadata;
-    } catch (error) {
-      throw wrapError(error, "Failed to read image metadata");
-    }
-  }
-
-  /**
-   * Convert Blob to ArrayBuffer
-   */
-  async blobToArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
-    return await blob.arrayBuffer();
-  }
-
-  /**
-   * Check if format is supported by browser
-   */
-  async isSupportedFormat(format: ImageFormat): Promise<boolean> {
-    // Create a small test canvas
-    const canvas = this.createCanvas(1, 1);
-    const mimeType = this.getMimeType(format);
-
-    try {
-      if (canvas instanceof OffscreenCanvas) {
-        const blob = await canvas.convertToBlob({ type: mimeType });
-        return blob.type === mimeType;
-      } else {
-        return new Promise<boolean>((resolve) => {
-          canvas.toBlob(
-            (blob) => {
-              resolve(blob !== null && blob.type === mimeType);
-            },
-            mimeType
-          );
-        });
-      }
-    } catch (error) {
-      logger.warn(`Format ${format} not supported`, error);
-      return false;
-    }
   }
 }

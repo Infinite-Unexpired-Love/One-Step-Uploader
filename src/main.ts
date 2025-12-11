@@ -6,37 +6,45 @@
 import { Editor, MarkdownView, Notice, Plugin, TFile } from "obsidian";
 import {
   R2UploaderSettings,
-  DEFAULT_SETTINGS,
   R2UploaderSettingTab,
+  SettingsManager
 } from "./settings";
-import { R2Connection } from "./r2Connection";
-import { MediaRepository } from "./mediaRepository";
+import { R2Connection } from "./connection";
+import { MediaRepository } from "./repository";
 import { ImageProcessor, ImageProcessorOptions } from "./imageProcessor";
 import { MarkdownLinkRewriter } from "./markdownLinkRewriter";
-import { Logger } from "./logger";
 import {
   generateUniqueFileName,
   isImageFile,
   formatBytes,
+  Logger,
+  ImageUtils,
 } from "./utils";
 
 const logger = Logger.getInstance();
 
 export default class R2ImageUploaderPlugin extends Plugin {
-  settings: R2UploaderSettings;
+  private settingsManager: SettingsManager;
   private r2Connection: R2Connection;
   private mediaRepository: MediaRepository;
   private processor: ImageProcessor;
   private linkRewriter: MarkdownLinkRewriter;
 
+  get settings(): R2UploaderSettings {
+    return this.settingsManager.get();
+  }
+
   async onload() {
     logger.info("Loading R2 Image Uploader Plugin");
+
+    // Initialize settings manager
+    this.settingsManager = new SettingsManager(this);
 
     // Load settings
     await this.loadSettings();
 
     // Initialize modules
-    this.r2Connection = R2Connection.create(this.settings);
+    this.r2Connection = R2Connection.create(this.settingsManager.getR2Settings());
     this.mediaRepository = new MediaRepository(this.r2Connection);
     this.processor = new ImageProcessor();
     this.linkRewriter = new MarkdownLinkRewriter();
@@ -68,7 +76,7 @@ export default class R2ImageUploaderPlugin extends Plugin {
    * Check if selected format is supported
    */
   private async checkFormatSupport() {
-    const supported = await this.processor.isSupportedFormat(this.settings.imageFormat);
+    const supported = await ImageUtils.isSupportedFormat(this.settings.imageFormat);
     
     if (!supported) {
       logger.warn(`Format ${this.settings.imageFormat} may not be fully supported on this platform`);
@@ -143,19 +151,14 @@ export default class R2ImageUploaderPlugin extends Plugin {
       });
 
       // Step 1: Validate image
-      const isValid = await this.processor.validateImage(file);
+      const isValid = await ImageUtils.validateImage(file);
       if (!isValid) {
         new Notice("❌ Invalid image file");
         return;
       }
 
       // Step 2: Process image (compress and convert)
-      const processOptions: ImageProcessorOptions = {
-        format: this.settings.imageFormat,
-        quality: this.settings.imageQuality,
-        maxWidth: this.settings.maxWidth,
-        maxHeight: this.settings.maxHeight,
-      };
+      const processOptions: ImageProcessorOptions = this.settingsManager.getImageProcessingSettings();
 
       const processed = await this.processor.processImage(file, processOptions);
 
@@ -267,14 +270,11 @@ export default class R2ImageUploaderPlugin extends Plugin {
       // Convert ArrayBuffer to Buffer for upload
       const buffer = Buffer.from(arrayBuffer);
 
-      // Generate upload key
-      const uploadKey = this.r2Connection.generateUploadKey(fileName);
-
       // Get content type
       const contentType = this.r2Connection.getContentType(format);
 
-      // Upload with retry
-      const result = await this.r2Connection.uploadWithRetry(buffer, uploadKey, contentType);
+      // Upload with retry using mediaRepository
+      const result = await this.mediaRepository.upload(buffer, fileName, contentType);
 
       if (result.success && result.url) {
         // Replace local link with R2 URL
@@ -367,25 +367,25 @@ export default class R2ImageUploaderPlugin extends Plugin {
   }
 
   /**
-   * Test R2 connection
+   * Test connection
    */
-  async testR2Connection(): Promise<void> {
+  async testConnection(): Promise<void> {
     if (!this.r2Connection.isConfigured()) {
       throw new Error("R2 is not fully configured. Please check all settings.");
     }
 
-    await this.r2Connection.testConnection();
+    await this.mediaRepository.testConnection();
   }
 
   /**
    * Load settings
    */
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    await this.settingsManager.load();
 
     // Update R2 connection settings if already initialized
     if (this.r2Connection) {
-      this.r2Connection.updateSettings(this.settings);
+      this.r2Connection.updateSettings(this.settingsManager.getR2Settings());
     }
   }
 
@@ -393,11 +393,11 @@ export default class R2ImageUploaderPlugin extends Plugin {
    * Save settings
    */
   async saveSettings() {
-    await this.saveData(this.settings);
+    await this.settingsManager.save();
 
     // Update R2 connection with new settings
     if (this.r2Connection) {
-      this.r2Connection.updateSettings(this.settings);
+      this.r2Connection.updateSettings(this.settingsManager.getR2Settings());
     }
 
     // Recheck format support

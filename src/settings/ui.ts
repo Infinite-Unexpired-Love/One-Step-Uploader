@@ -3,61 +3,8 @@
  */
 
 import { App, Notice, PluginSettingTab, Setting } from "obsidian";
-import R2ImageUploaderPlugin from "./main";
-
-export type ImageFormat = "webp" | "avif" | "jpeg" | "png";
-
-export interface R2UploaderSettings {
-  // R2 Configuration
-  r2Endpoint: string;
-  r2AccessKeyId: string;
-  r2SecretAccessKey: string;
-  r2Bucket: string;
-  r2Region: string;
-  r2PublicBaseUrl: string;
-
-  // Image Processing
-  imageFormat: ImageFormat;
-  imageQuality: number;
-  maxWidth: number;
-  maxHeight: number;
-  preserveOriginalName: boolean;
-
-  // Upload Options
-  uploadPath: string;
-  enableUpload: boolean;
-  deleteLocalAfterUpload: boolean;
-
-  // Advanced
-  retryAttempts: number;
-  timeoutSeconds: number;
-}
-
-export const DEFAULT_SETTINGS: R2UploaderSettings = {
-  // R2 Configuration
-  r2Endpoint: "https://your-account-id.r2.cloudflarestorage.com",
-  r2AccessKeyId: "",
-  r2SecretAccessKey: "",
-  r2Bucket: "obsidian-images",
-  r2Region: "auto",
-  r2PublicBaseUrl: "https://your-domain.com",
-
-  // Image Processing
-  imageFormat: "webp",
-  imageQuality: 80,
-  maxWidth: 1920,
-  maxHeight: 1080,
-  preserveOriginalName: false,
-
-  // Upload Options
-  uploadPath: "images/{year}/{month}",
-  enableUpload: true,
-  deleteLocalAfterUpload: false,
-
-  // Advanced
-  retryAttempts: 3,
-  timeoutSeconds: 30,
-};
+import R2ImageUploaderPlugin from "../main";
+import { ImageFormat, R2UploaderSettings } from "./data";
 
 export class R2UploaderSettingTab extends PluginSettingTab {
   plugin: R2ImageUploaderPlugin;
@@ -317,7 +264,7 @@ export class R2UploaderSettingTab extends PluginSettingTab {
             button.setButtonText("Testing...");
 
             try {
-              await this.plugin.testR2Connection();
+              await this.plugin.testConnection();
               new Notice("✅ R2 connection successful!");
             } catch (error) {
               new Notice(`❌ R2 connection failed: ${error.message}`);

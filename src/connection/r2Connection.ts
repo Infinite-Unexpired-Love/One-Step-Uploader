@@ -5,9 +5,8 @@
 import { S3Client, PutObjectCommand, HeadBucketCommand } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
 import { Connection } from "./connection";
-import { R2UploaderSettings } from "./settings";
-import { wrapError, retryWithBackoff } from "./utils";
-import { Logger } from "./logger";
+import { R2UploaderSettings, R2Settings } from "../settings/data";
+import { wrapError, retryWithBackoff,Logger } from "../utils";
 
 const logger = Logger.getInstance();
 
@@ -18,10 +17,10 @@ export interface UploadResult {
   error?: string;
 }
 
-export class R2Connection extends Connection<R2UploaderSettings> {
+export class R2Connection extends Connection<R2Settings> {
   private client: S3Client | null = null;
 
-  constructor(settings: R2UploaderSettings) {
+  constructor(settings: R2Settings) {
     super(settings);
     this.initialize();
   }
@@ -227,7 +226,7 @@ export class R2Connection extends Connection<R2UploaderSettings> {
   /**
    * Update settings and reinitialize
    */
-  updateSettings(settings: R2UploaderSettings): void {
+  updateSettings(settings: R2Settings): void {
     this.settings = settings;
     this.initialize();
   }
@@ -235,7 +234,7 @@ export class R2Connection extends Connection<R2UploaderSettings> {
   /**
    * Static factory method to create R2Connection instance
    */
-  static create(settings: R2UploaderSettings): R2Connection {
+  static create(settings: R2Settings): R2Connection {
     return new R2Connection(settings);
   }
 }
