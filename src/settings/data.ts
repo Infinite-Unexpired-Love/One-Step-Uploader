@@ -12,10 +12,12 @@ export interface R2Settings {
   r2SecretAccessKey: string;
   r2Bucket: string;
   r2Region: string;
-  r2PublicBaseUrl: string;
 
-  // Upload Options
-  uploadPath: string;
+}
+
+export interface UploadSettings {
+  uploadPathPattern: string;
+  publicBaseUrl: string;
   enableUpload: boolean;
   deleteLocalAfterUpload: boolean;
 
@@ -33,8 +35,13 @@ export interface ImageProcessingSettings {
   preserveOriginalName: boolean;
 }
 
+export interface DataPersister {
+  loadData(): Promise<any>;
+  saveData(data: any): Promise<void>;
+}
+
 // Combined settings interface
-export interface R2UploaderSettings extends R2Settings, ImageProcessingSettings {}
+export interface PluginSettings extends R2Settings, UploadSettings,ImageProcessingSettings {}
 
 export const DEFAULT_R2_SETTINGS: R2Settings = {
   // R2 Configuration
@@ -43,10 +50,11 @@ export const DEFAULT_R2_SETTINGS: R2Settings = {
   r2SecretAccessKey: "",
   r2Bucket: "obsidian-images",
   r2Region: "auto",
-  r2PublicBaseUrl: "https://your-domain.com",
+};
 
-  // Upload Options
-  uploadPath: "images/{year}/{month}",
+export const DEFAULT_UPLOAD_SETTINGS: UploadSettings = {
+  uploadPathPattern: "images/{year}/{month}",
+  publicBaseUrl: "https://your-domain.com",
   enableUpload: true,
   deleteLocalAfterUpload: false,
 
@@ -64,7 +72,8 @@ export const DEFAULT_IMAGE_PROCESSING_SETTINGS: ImageProcessingSettings = {
   preserveOriginalName: false,
 };
 
-export const DEFAULT_SETTINGS: R2UploaderSettings = {
+export const DEFAULT_SETTINGS: PluginSettings = {
   ...DEFAULT_R2_SETTINGS,
+  ...DEFAULT_UPLOAD_SETTINGS,
   ...DEFAULT_IMAGE_PROCESSING_SETTINGS,
 };

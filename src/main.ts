@@ -5,11 +5,10 @@
 
 import { Editor, MarkdownView, Notice, Plugin, TFile } from "obsidian";
 import {
-  R2UploaderSettings,
-  R2UploaderSettingTab,
+  PasteAndGoSettingTab,
   SettingsManager
 } from "./settings";
-import { R2Connection } from "./connection";
+import { R2Adapter } from "./adapter";
 import { MediaRepository } from "./repository";
 import { ImageProcessor, ImageProcessorOptions } from "./imageProcessor";
 import { MarkdownLinkRewriter } from "./markdownLinkRewriter";
@@ -23,34 +22,34 @@ import {
 
 const logger = Logger.getInstance();
 
-export default class R2ImageUploaderPlugin extends Plugin {
+export default class PasteAndGoPlugin extends Plugin {
   private settingsManager: SettingsManager;
-  private r2Connection: R2Connection;
+  private r2Adapter: R2Adapter;
   private mediaRepository: MediaRepository;
   private processor: ImageProcessor;
   private linkRewriter: MarkdownLinkRewriter;
 
-  get settings(): R2UploaderSettings {
-    return this.settingsManager.get();
-  }
-
   async onload() {
-    logger.info("Loading R2 Image Uploader Plugin");
+    logger.info("Loading Paste And Go Plugin");
 
     // Initialize settings manager
-    this.settingsManager = new SettingsManager(this);
+    this.settingsManager=SettingsManager.initialize(this);
 
     // Load settings
-    await this.loadSettings();
+    await this.settingsManager.load();
 
     // Initialize modules
-    this.r2Connection = R2Connection.create(this.settingsManager.getR2Settings());
-    this.mediaRepository = new MediaRepository(this.r2Connection);
+    this.r2Adapter = new R2Adapter(this.settingsManager.getR2Settings());
+    const mediaRepoConfig={
+      uploadPathPattern: this.settingsManager.getUploadSettings().uploadPathPattern,
+      publicBaseUrl: this.settingsManager.getUploadSettings().publicBaseUrl,
+    }
+    this.mediaRepository = new MediaRepository(this.r2Adapter,mediaRepoConfig);
     this.processor = new ImageProcessor();
     this.linkRewriter = new MarkdownLinkRewriter();
 
     // Add settings tab
-    this.addSettingTab(new R2UploaderSettingTab(this.app, this));
+    this.addSettingTab(new PasteAndGoSettingTab(this.app, this.testConnection.bind(this)));
 
     // Register paste event handler
     this.registerEvent(
@@ -65,25 +64,26 @@ export default class R2ImageUploaderPlugin extends Plugin {
     // Check format support on startup
     await this.checkFormatSupport();
 
-    logger.info("R2 Image Uploader Plugin loaded successfully");
+    logger.info("Paste And Go Plugin loaded successfully");
   }
 
   onunload() {
-    logger.info("Unloading R2 Image Uploader Plugin");
+    logger.info("Unloading Paste And Go Plugin");
   }
 
   /**
    * Check if selected format is supported
    */
   private async checkFormatSupport() {
-    const supported = await ImageUtils.isSupportedFormat(this.settings.imageFormat);
+    const format = this.settingsManager.get().imageFormat;
+    const supported = await ImageUtils.isSupportedFormat(format);
     
     if (!supported) {
-      logger.warn(`Format ${this.settings.imageFormat} may not be fully supported on this platform`);
+      logger.warn(`Format ${format} may not be fully supported on this platform`);
       
       // Show warning (only once on startup)
       new Notice(
-        `⚠️ ${this.settings.imageFormat.toUpperCase()} format may not be supported. Consider using JPEG or PNG.`,
+        `⚠️ ${format} format may not be supported. Consider using JPEG or PNG.`,
         8000
       );
     }
@@ -169,7 +169,7 @@ export default class R2ImageUploaderPlugin extends Plugin {
       const fileName = generateUniqueFileName(
         file.name,
         processed.format,
-        this.settings.preserveOriginalName
+        this.settingsManager.get().preserveOriginalName
       );
 
       // Step 5: Save locally first (fallback)
@@ -184,7 +184,7 @@ export default class R2ImageUploaderPlugin extends Plugin {
       editor.replaceSelection(localMarkdown + "\n");
 
       // Step 7: Upload to R2 (if enabled)
-      if (this.settings.enableUpload && this.r2Connection.isConfigured()) {
+      if (this.settingsManager.get().enableUpload && this.r2Adapter.isConfigured()) {
         await this.uploadAndReplace(
           arrayBuffer,
           fileName,
@@ -193,7 +193,7 @@ export default class R2ImageUploaderPlugin extends Plugin {
           editor
         );
       } else {
-        if (!this.settings.enableUpload) {
+        if (!this.settingsManager.get().enableUpload) {
           logger.info("Upload disabled, using local image only");
         } else {
           new Notice("⚠️ R2 not configured. Image saved locally only.");
@@ -215,44 +215,41 @@ export default class R2ImageUploaderPlugin extends Plugin {
    * Save image locally in vault
    */
   private async saveImageLocally(
-    arrayBuffer: ArrayBuffer,
-    fileName: string,
-    currentFile: TFile | null
-  ): Promise<string> {
-    try {
-      // Determine attachment folder
-      const attachmentFolder = this.getAttachmentFolder(currentFile);
+  arrayBuffer: ArrayBuffer,
+  fileName: string,
+  currentFile: TFile | null
+): Promise<string> {
+  try {
+    const attachmentFolder = this.getAttachmentFolder(currentFile);
+    await this.ensureFolderExists(attachmentFolder);
+    const fullPath = `${attachmentFolder}/${fileName}`;
 
-      // Ensure folder exists
-      await this.ensureFolderExists(attachmentFolder);
-
-      // Full path
-      const fullPath = `${attachmentFolder}/${fileName}`;
-
-      // Check if file exists and generate unique name if needed
-      let finalPath = fullPath;
-      let counter = 1;
-      while (await this.app.vault.adapter.exists(finalPath)) {
-        const baseName = fileName.replace(/\.[^/.]+$/, "");
-        const ext = fileName.split(".").pop();
-        finalPath = `${attachmentFolder}/${baseName}_${counter}.${ext}`;
-        counter++;
-      }
-
-      // Convert ArrayBuffer to Uint8Array for writing
-      const uint8Array = new Uint8Array(arrayBuffer);
-
-      // Save file
-      await this.app.vault.adapter.writeBinary(finalPath, uint8Array);
-
-      logger.info("Image saved locally", { path: finalPath });
-
-      return finalPath;
-    } catch (error) {
-      logger.error("Failed to save image locally", error);
-      throw new Error(`Failed to save image locally: ${error.message}`);
+    // 处理文件重名
+    let finalPath = fullPath;
+    let counter = 1;
+    while (await this.app.vault.adapter.exists(finalPath)) {
+      const extMatch = fileName.match(/\.([^/.]+)$/);
+      const baseName = fileName.replace(/\.[^/.]+$/, "");
+      const ext = extMatch ? extMatch[1] : ""; // 无扩展名时为空字符串
+      finalPath = `${attachmentFolder}/${baseName}_${counter}${ext ? `.${ext}` : ""}`;
+      counter++;
     }
+
+    // 转换为 Uint8Array（仅用于内存操作，最终传底层 ArrayBuffer）
+    const uint8Array = new Uint8Array(arrayBuffer);
+
+    // 核心修复：传递 uint8Array.buffer 匹配 ArrayBuffer 类型
+    await this.app.vault.adapter.writeBinary(finalPath, uint8Array.buffer);
+
+    logger.info("Image saved locally", { path: finalPath });
+    return finalPath;
+  } catch (error) {
+    logger.error("Failed to save image locally", error);
+    // 类型守卫避免 error 无 message 属性
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to save image locally: ${errorMsg}`);
   }
+}
 
   /**
    * Upload to R2 and replace markdown link
@@ -270,11 +267,8 @@ export default class R2ImageUploaderPlugin extends Plugin {
       // Convert ArrayBuffer to Buffer for upload
       const buffer = Buffer.from(arrayBuffer);
 
-      // Get content type
-      const contentType = this.r2Connection.getContentType(format);
-
       // Upload with retry using mediaRepository
-      const result = await this.mediaRepository.upload(buffer, fileName, contentType);
+      const result = await this.mediaRepository.upload(buffer, fileName, format);
 
       if (result.success && result.url) {
         // Replace local link with R2 URL
@@ -292,7 +286,7 @@ export default class R2ImageUploaderPlugin extends Plugin {
           });
 
           // Optionally delete local file
-          if (this.settings.deleteLocalAfterUpload) {
+          if (this.settingsManager.get().deleteLocalAfterUpload) {
             await this.deleteLocalImage(localPath);
           }
         } else {
@@ -370,7 +364,7 @@ export default class R2ImageUploaderPlugin extends Plugin {
    * Test connection
    */
   async testConnection(): Promise<void> {
-    if (!this.r2Connection.isConfigured()) {
+    if (!this.r2Adapter.isConfigured()) {
       throw new Error("R2 is not fully configured. Please check all settings.");
     }
 
@@ -384,8 +378,8 @@ export default class R2ImageUploaderPlugin extends Plugin {
     await this.settingsManager.load();
 
     // Update R2 connection settings if already initialized
-    if (this.r2Connection) {
-      this.r2Connection.updateSettings(this.settingsManager.getR2Settings());
+    if (this.r2Adapter) {
+      this.r2Adapter.updateSettings(this.settingsManager.getR2Settings());
     }
   }
 
@@ -396,8 +390,8 @@ export default class R2ImageUploaderPlugin extends Plugin {
     await this.settingsManager.save();
 
     // Update R2 connection with new settings
-    if (this.r2Connection) {
-      this.r2Connection.updateSettings(this.settingsManager.getR2Settings());
+    if (this.r2Adapter) {
+      this.r2Adapter.updateSettings(this.settingsManager.getR2Settings());
     }
 
     // Recheck format support

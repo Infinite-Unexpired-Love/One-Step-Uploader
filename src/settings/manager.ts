@@ -2,23 +2,37 @@
  * Settings management class
  */
 
-import R2ImageUploaderPlugin from "../main";
-import { R2UploaderSettings, DEFAULT_SETTINGS, R2Settings, ImageProcessingSettings } from "./data";
+import { PluginSettings, DEFAULT_SETTINGS, R2Settings, ImageProcessingSettings,UploadSettings,DataPersister } from "./data";
 
 export class SettingsManager {
-  private plugin: R2ImageUploaderPlugin;
-  private settings: R2UploaderSettings;
+  private static instance: SettingsManager;
+  private persister: DataPersister;
+  private settings: PluginSettings;
 
-  constructor(plugin: R2ImageUploaderPlugin) {
-    this.plugin = plugin;
+  private constructor(persister: DataPersister) {
+    this.persister = persister;
     this.settings = Object.assign({}, DEFAULT_SETTINGS);
+  }
+
+  public static initialize(persister: DataPersister): SettingsManager {
+    if (!SettingsManager.instance) {
+      SettingsManager.instance = new SettingsManager(persister);
+    }
+    return SettingsManager.instance;
+  }
+
+  public static getInstance(): SettingsManager {
+    if (!SettingsManager.instance) {
+      throw new Error("SettingsManager not initialized! Call initialize() first.");
+    }
+    return SettingsManager.instance;
   }
 
   /**
    * Load settings from plugin data
    */
-  async load(): Promise<R2UploaderSettings> {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.plugin.loadData());
+  async load(): Promise<PluginSettings> {
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.persister.loadData());
     return this.settings;
   }
 
@@ -26,13 +40,13 @@ export class SettingsManager {
    * Save settings to plugin data
    */
   async save(): Promise<void> {
-    await this.plugin.saveData(this.settings);
+    await this.persister.saveData(this.settings);
   }
 
   /**
    * Get current settings
    */
-  get(): R2UploaderSettings {
+  get(): PluginSettings {
     return this.settings;
   }
 
@@ -44,14 +58,16 @@ export class SettingsManager {
         r2SecretAccessKey: this.settings.r2SecretAccessKey,
         r2Bucket: this.settings.r2Bucket,
         r2Region: this.settings.r2Region,
-        r2PublicBaseUrl: this.settings.r2PublicBaseUrl,
 
-        // Upload Options
-        uploadPath: this.settings.uploadPath,
+    };
+  }
+
+  getUploadSettings(): UploadSettings {
+    return {
+        uploadPathPattern: this.settings.uploadPathPattern,
+        publicBaseUrl: this.settings.publicBaseUrl,
         enableUpload: this.settings.enableUpload,
         deleteLocalAfterUpload: this.settings.deleteLocalAfterUpload,
-
-        // Advanced
         retryAttempts: this.settings.retryAttempts,
         timeoutSeconds: this.settings.timeoutSeconds,
     };
@@ -70,14 +86,14 @@ export class SettingsManager {
   /**
    * Update settings
    */
-  set(newSettings: Partial<R2UploaderSettings>): void {
+  set(newSettings: Partial<PluginSettings>): void {
     this.settings = { ...this.settings, ...newSettings };
   }
 
   /**
    * Update a single setting
    */
-  update(key: keyof R2UploaderSettings, value: any): void {
+  update(key: keyof PluginSettings, value: any): void {
     this.settings = { ...this.settings, [key]: value };
   }
 }
