@@ -8,12 +8,14 @@ import { SettingsManager } from "./manager";
 
 export class PasteAndGoSettingTab extends PluginSettingTab {
   private onTestConnection: () => Promise<void>;
+  private onR2SettingsChange:() => void;
   private manager: SettingsManager;
   private ui: HTMLElement;
 
-  constructor(app: App, onTestConnection: () => Promise<void>) {
+  constructor(app: App, onTestConnection: () => Promise<void>,onR2SettingsChange:() => void) {
     super(app, {} as any);
     this.onTestConnection=onTestConnection;
+    this.onR2SettingsChange=onR2SettingsChange;
     this.manager = SettingsManager.getInstance();
     this.ui = this.containerEl;
     this.ui.empty();
@@ -28,49 +30,56 @@ export class PasteAndGoSettingTab extends PluginSettingTab {
       this.addToggleInputEL(
         "Enable Upload",
         "Enable automatic upload to R2. If disabled, images will only be saved locally.",
-        "enableUpload"
+        "enableUpload",
+        this.onR2SettingsChange
       )
 
       this.addTextInputEL(
         "R2 Endpoint",
         "Your Cloudflare R2 endpoint URL",
         "r2Endpoint",
-        false
+        false,
+        this.onR2SettingsChange
       )
       
       this.addTextInputEL(
         "Access Key ID",
         "R2 Access Key ID",
         "r2AccessKeyId",
-        false
+        false,
+        this.onR2SettingsChange
       )
       
       this.addTextInputEL(
         "Secret Access Key",
         "R2 Secret Access Key (stored securely)",
         "r2SecretAccessKey",
-        true
+        true,
+        this.onR2SettingsChange
       )
       
       this.addTextInputEL(
         "Bucket Name",
         "R2 bucket name",
         "r2Bucket",
-        false
+        false,
+        this.onR2SettingsChange
       )
       
       this.addTextInputEL(
         "Region",
         'R2 region (usually "auto" for Cloudflare)',
         "r2Region",
-        false
+        false,
+        this.onR2SettingsChange
       )
       
       this.addTextInputEL(
         "Public Base URL",
         "Public URL for accessing uploaded images (your R2 custom domain)",
         "publicBaseUrl",
-        false
+        false,
+        this.onR2SettingsChange
       )
 
       // Test Connection Button
@@ -183,7 +192,8 @@ export class PasteAndGoSettingTab extends PluginSettingTab {
   private addToggleInputEL(
     name: string,
     desc: string,
-    key: keyof PluginSettings
+    key: keyof PluginSettings,
+    callback?:() => void
   ) {
     new Setting(this.ui)
       .setName(name)
@@ -194,6 +204,9 @@ export class PasteAndGoSettingTab extends PluginSettingTab {
           .onChange(async (value) => {
             this.manager.update(key, value);
             await this.manager.save();
+            if(callback){
+              callback();
+            }
           })
       );
   }
@@ -202,7 +215,8 @@ export class PasteAndGoSettingTab extends PluginSettingTab {
     name: string,
     desc: string,
     key: keyof PluginSettings,
-    isPassword: boolean = false
+    isPassword: boolean = false,
+    callback?:() => void
   ) {
     new Setting(this.ui)
       .setName(name)
@@ -213,6 +227,9 @@ export class PasteAndGoSettingTab extends PluginSettingTab {
           .onChange(async (value) => {
             this.manager.update(key, value.trim());
             await this.manager.save();
+            if(callback){
+              callback();
+            }
           });
         
         if (isPassword) text.inputEl.type = "password";
@@ -227,6 +244,7 @@ export class PasteAndGoSettingTab extends PluginSettingTab {
     name: string,
     desc: string,
     key: keyof PluginSettings,
+    callback?:() => void
   ) {
     const manager = SettingsManager.getInstance();
     new Setting(this.ui)
@@ -241,6 +259,9 @@ export class PasteAndGoSettingTab extends PluginSettingTab {
             if (!isNaN(num) && num >= 0) {
               manager.update(key, num);
               await manager.save();
+              if(callback){
+                callback();
+              }
             }
           })
       );

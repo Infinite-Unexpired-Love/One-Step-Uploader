@@ -49,7 +49,7 @@ export default class PasteAndGoPlugin extends Plugin {
     this.linkRewriter = new MarkdownLinkRewriter();
 
     // Add settings tab
-    this.addSettingTab(new PasteAndGoSettingTab(this.app, this.testConnection.bind(this)));
+    this.addSettingTab(new PasteAndGoSettingTab(this.app, this.testConnection.bind(this),this.onR2SettingsChange.bind(this)));
 
     // Register paste event handler
     this.registerEvent(
@@ -372,31 +372,12 @@ export default class PasteAndGoPlugin extends Plugin {
   }
 
   /**
-   * Load settings
+   * Notify R2 adapter of settings changes
    */
-  async loadSettings() {
-    await this.settingsManager.load();
-
-    // Update R2 connection settings if already initialized
+  onR2SettingsChange() {
     if (this.r2Adapter) {
       this.r2Adapter.updateSettings(this.settingsManager.getR2Settings());
     }
   }
 
-  /**
-   * Save settings
-   */
-  async saveSettings() {
-    await this.settingsManager.save();
-
-    // Update R2 connection with new settings
-    if (this.r2Adapter) {
-      this.r2Adapter.updateSettings(this.settingsManager.getR2Settings());
-    }
-
-    // Recheck format support
-    await this.checkFormatSupport();
-
-    logger.info("Settings saved");
-  }
 }
