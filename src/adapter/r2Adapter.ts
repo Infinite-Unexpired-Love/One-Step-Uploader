@@ -4,8 +4,8 @@
 import { S3Client, HeadBucketCommand } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
 import { StorageAdapter, UploadOptions, UploadResult } from "./storageAdapter";
-import { R2Settings } from "../settings/data"; 
-import { wrapError, Logger } from "../utils";
+import { R2Settings } from "../settings/data";
+import { wrapError, Logger, ObsidianHttpHandler } from "../utils";
 
 const logger = Logger.getInstance();
 
@@ -34,6 +34,7 @@ export class R2Adapter implements StorageAdapter {
           secretAccessKey: this.settings.r2SecretAccessKey,
         },
         forcePathStyle: false, // Cloudflare R2 通常不需要强制 path style，视具体情况而定
+        requestHandler: new ObsidianHttpHandler(),
       });
 
       logger.info("R2 adapter initialized");
@@ -77,7 +78,6 @@ export class R2Adapter implements StorageAdapter {
         queueSize: 4,
         partSize: 5 * 1024 * 1024,
       });
-
       await upload.done();
       
       // Adapter 只返回 key，因为 URL 构造是业务层的逻辑（涉及域名配置）

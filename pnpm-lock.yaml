@@ -14,6 +14,12 @@ importers:
       '@aws-sdk/lib-storage':
         specifier: ^3.478.0
         version: 3.947.0(@aws-sdk/client-s3@3.946.0)
+      '@smithy/protocol-http':
+        specifier: ^5.3.5
+        version: 5.3.5
+      '@smithy/types':
+        specifier: ^4.9.0
+        version: 4.9.0
     devDependencies:
       '@types/node':
         specifier: ^20.10.0
