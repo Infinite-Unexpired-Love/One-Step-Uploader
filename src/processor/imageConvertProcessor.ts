@@ -3,8 +3,8 @@
  * Cross-platform compatible (Desktop + Mobile)
  */
 
-import { ImageFormat,ImageProcessingSettings } from "./settings/data";
-import { wrapError, formatBytes,ImageUtils,Logger } from "./utils";
+import { ImageFormat,ImageProcessingSettings } from "../settings/data";
+import { wrapError, formatBytes,ImageUtils,Logger } from "../utils";
 
 const logger = Logger.getInstance();
 
@@ -16,16 +16,16 @@ export interface ProcessedImage {
   size: number;
 }
 
-// Type alias for backwards compatibility - uses field names from settings structure
+// Type alias for backwards compatibility
 export interface ImageProcessorOptions extends ImageProcessingSettings{
   
 }
 
-export class ImageProcessor {
+export class ImageConvertProcessor {
   /**
    * Process image using Canvas API: compress and convert format
    */
-  async processImage(
+  static async process(
     file: File | Blob,
     options: ImageProcessorOptions
   ): Promise<ProcessedImage> {
@@ -103,7 +103,7 @@ export class ImageProcessor {
   /**
    * Load image from Blob/File using createImageBitmap
    */
-  private async loadImage(source: Blob | File): Promise<ImageBitmap> {
+  private static async loadImage(source: Blob | File): Promise<ImageBitmap> {
     try {
       return await createImageBitmap(source);
     } catch (error) {
@@ -114,7 +114,7 @@ export class ImageProcessor {
   /**
    * Create canvas (OffscreenCanvas if available, fallback to HTMLCanvasElement)
    */
-  private createCanvas(width: number, height: number): OffscreenCanvas | HTMLCanvasElement {
+  private static createCanvas(width: number, height: number): OffscreenCanvas | HTMLCanvasElement {
     // Try OffscreenCanvas first (better performance, works in workers)
     if (typeof OffscreenCanvas !== "undefined") {
       return new OffscreenCanvas(width, height);
@@ -130,7 +130,7 @@ export class ImageProcessor {
   /**
    * Convert canvas to Blob with specified format and quality
    */
-  private async canvasToBlob(
+  private static async canvasToBlob(
     canvas: OffscreenCanvas | HTMLCanvasElement,
     format: ImageFormat,
     quality: number

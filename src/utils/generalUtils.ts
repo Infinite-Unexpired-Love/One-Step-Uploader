@@ -22,40 +22,6 @@ export function wrapError(error: unknown, context: string): Error {
 }
 
 /**
- * Retry function with exponential backoff
- */
-export async function retryWithBackoff<T>(
-  fn: () => Promise<T>,
-  maxRetries: number = 3,
-  initialDelay: number = 1000
-): Promise<T> {
-  let lastError: Error | undefined;
-
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-
-      if (attempt < maxRetries - 1) {
-        const delay = initialDelay * Math.pow(2, attempt);
-        logger.warn(`Retry attempt ${attempt + 1}/${maxRetries} after ${delay}ms`);
-        await sleep(delay);
-      }
-    }
-  }
-
-  throw lastError || new Error("All retry attempts failed");
-}
-
-/**
- * Sleep utility
- */
-export function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/**
  * Format bytes to human-readable size
  */
 export function formatBytes(bytes: number, decimals: number = 2): string {

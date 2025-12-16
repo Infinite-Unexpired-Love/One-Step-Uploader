@@ -1,59 +1,18 @@
-/**
- * Markdown link rewriter module
- */
-
-import { Editor } from "obsidian";
-import { Logger } from "./utils/logger";
-
+import { Logger } from "./logger";
 const logger = Logger.getInstance();
 
-export interface LinkReplacement {
+export interface Replacement {
   oldLink: string;
   newLink: string;
   position: { line: number; ch: number };
 }
 
-export class MarkdownLinkRewriter {
-  /**
-   * Replace image link in editor
-   */
-  replaceImageLink(editor: Editor, oldPath: string, newUrl: string): boolean {
-    try {
-      const content = editor.getValue();
-      const imagePattern = this.createImagePattern(oldPath);
-
-      logger.debug("Searching for image link", { oldPath });
-
-      const match = content.match(imagePattern);
-      if (!match) {
-        logger.warn("Image link not found in editor", { oldPath });
-        return false;
-      }
-
-      const newMarkdown = `![](${newUrl})`;
-      const newContent = content.replace(imagePattern, newMarkdown);
-
-      // Replace content
-      editor.setValue(newContent);
-
-      logger.info("Image link replaced successfully", {
-        oldPath,
-        newUrl,
-      });
-
-      return true;
-    } catch (error) {
-      logger.error("Failed to replace image link", error);
-      return false;
-    }
-  }
-
-  /**
+export class StringUtils {
+    /**
    * Find image link position in editor
    */
-  findImageLinkPosition(editor: Editor, imagePath: string): LinkReplacement | null {
+  static findImageLinkPosition(content: string, imagePath: string): Replacement | null {
     try {
-      const content = editor.getValue();
       const lines = content.split("\n");
 
       for (let i = 0; i < lines.length; i++) {
@@ -82,16 +41,17 @@ export class MarkdownLinkRewriter {
   /**
    * Replace link at specific position
    */
-  replaceLinkAtPosition(editor: Editor, replacement: LinkReplacement): boolean {
+  static replaceLinkAtPosition(content: string, replacement: Replacement): string {
     try {
       const { line, ch } = replacement.position;
-      const lineContent = editor.getLine(line);
+      const lines = content.split("\n");
+      const lineContent = lines[line];
 
       const before = lineContent.substring(0, ch);
       const after = lineContent.substring(ch + replacement.oldLink.length);
       const newLine = before + replacement.newLink + after;
 
-      editor.setLine(line, newLine);
+      lines[line] = newLine;
 
       logger.info("Link replaced at position", {
         line,
@@ -99,17 +59,17 @@ export class MarkdownLinkRewriter {
         newLink: replacement.newLink,
       });
 
-      return true;
+      return lines.join("\n");
     } catch (error) {
-      logger.error("Failed to replace link at position", error);
-      return false;
+      logger.error("Failed to replace link at position, nothing done", error);
+      return content;
     }
   }
 
   /**
    * Create regex pattern for image markdown
    */
-  private createImagePattern(imagePath: string): RegExp {
+   static createImagePattern(imagePath: string): RegExp {
     // Escape special regex characters in path
     const escapedPath = imagePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -121,7 +81,7 @@ export class MarkdownLinkRewriter {
   /**
    * Extract image path from markdown link
    */
-  extractImagePath(markdownLink: string): string | null {
+  static extractImagePath(markdownLink: string): string | null {
     const match = markdownLink.match(/!\[.*?\]\(([^)]+)\)/);
     return match ? match[1] : null;
   }
@@ -129,15 +89,14 @@ export class MarkdownLinkRewriter {
   /**
    * Check if line contains image markdown
    */
-  isImageMarkdown(line: string): boolean {
+  static isImageMarkdown(line: string): boolean {
     return /!\[.*?\]\(.+?\)/.test(line);
   }
 
   /**
-   * Get all image links in editor
+   * Get all image links
    */
-  getAllImageLinks(editor: Editor): string[] {
-    const content = editor.getValue();
+  static getAllImageLinks(content: string): string[] {
     const imagePattern = /!\[.*?\]\(([^)]+)\)/g;
     const links: string[] = [];
 
@@ -152,14 +111,14 @@ export class MarkdownLinkRewriter {
   /**
    * Format markdown image link
    */
-  formatImageLink(url: string, alt: string = ""): string {
+  static formatImageLink(url: string, alt: string = ""): string {
     return `![${alt}](${url})`;
   }
 
   /**
    * Check if URL is already external
    */
-  isExternalUrl(url: string): boolean {
+  static isExternalUrl(url: string): boolean {
     return url.startsWith("http://") || url.startsWith("https://");
   }
 }

@@ -1,32 +1,28 @@
-/**
- * Media Repository
- * 负责业务逻辑：文件命名、路径规划、类型判断
- */
 import { StorageAdapter } from "../adapter";
 
 // 定义 Repository 需要的配置，解耦了具体的 R2Settings
-export interface MediaRepoConfig {
+export interface RemoteRepoConfig {
   uploadPathPattern: string; // e.g., "uploads/{year}/{month}"
   publicBaseUrl: string;     // e.g., "https://cdn.example.com"
 }
 
-export interface MediaUploadResult {
+export interface RemoteUploadResult {
   success: boolean;
   url?: string;
   key?: string;
   error?: string;
 }
 
-export class MediaRepository {
+export class RemoteRepository {
   constructor(
     private adapter: StorageAdapter,
-    private config: MediaRepoConfig
+    private config: RemoteRepoConfig
   ) {}
 
   /**
    * 上传文件的主入口
    */
-  async upload(buffer: Buffer, originalFileName: string, format: string): Promise<MediaUploadResult> {
+  async save(buffer: Buffer, originalFileName: string, format: string): Promise<RemoteUploadResult> {
     if (!this.adapter.isConfigured()) {
       return { success: false, error: "Storage adapter is not configured" };
     }
@@ -57,7 +53,7 @@ export class MediaRepository {
   /**
    * 更新配置
    */
-  updateConfig(config: MediaRepoConfig) {
+  updateConfig(config: RemoteRepoConfig) {
     this.config = config;
   }
 

@@ -1,1 +1,2 @@
-export * from "./mediaRepository"
+export * from "./remoteRepository"
+export * from "./localRepository"
