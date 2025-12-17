@@ -54,6 +54,7 @@ export class R2Adapter implements StorageAdapter {
       const command = new HeadBucketCommand({ Bucket: this.settings.r2Bucket });
       await this.client.send(command);
     }catch (error) {
+      console.log(error);
       throw wrapError(error, "R2 connection test failed");
     }
   }

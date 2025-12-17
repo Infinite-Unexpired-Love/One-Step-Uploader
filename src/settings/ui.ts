@@ -2,18 +2,18 @@
  * Settings panel and configuration schema
  */
 
-import { App, Notice, PluginSettingTab, Setting } from "obsidian";
+import { App, Plugin, Notice, PluginSettingTab, Setting } from "obsidian";
 import { ImageFormat,PluginSettings } from "./data";
 import { SettingsManager } from "./manager";
 
-export class PasteAndGoSettingTab extends PluginSettingTab {
+export class OneStepUploaderSettingTab extends PluginSettingTab {
   private onTestConnection: () => Promise<void>;
   private onR2SettingsChange:() => void;
   private manager: SettingsManager;
   private ui: HTMLElement;
 
-  constructor(app: App, onTestConnection: () => Promise<void>,onR2SettingsChange:() => void) {
-    super(app, {} as any);
+  constructor(app: App, plugin: Plugin,onTestConnection: () => Promise<void>,onR2SettingsChange:() => void) {
+    super(app, plugin);
     this.onTestConnection=onTestConnection;
     this.onR2SettingsChange=onR2SettingsChange;
     this.manager = SettingsManager.getInstance();
@@ -22,7 +22,7 @@ export class PasteAndGoSettingTab extends PluginSettingTab {
   }
 
   display(): void {
-    this.ui.createEl("h2", { text: "R2 Image Uploader Settings" });
+    this.ui.createEl("h2", { text: "One Step Uploader Settings" });
 
     // R2 Configuration Section
     this.ui.createEl("h3", { text: "Cloudflare R2 Configuration" });

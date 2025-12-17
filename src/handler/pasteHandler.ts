@@ -17,8 +17,9 @@ export class PasteHandler {
   /**
    * 处理粘贴/拖拽事件的主入口
    */
-  async handle(files: FileList | null, editor: Editor, view: MarkdownView) {
-    if (!files || files.length === 0) return;
+  async handle(files: FileList, editor: Editor, view: MarkdownView) {
+    logger.info("PasteHandler.handle called");
+    logger.debug(files.item.toString());
     const imageFiles = Array.from(files).filter(isImageFile);
     if (imageFiles.length === 0) return;
 

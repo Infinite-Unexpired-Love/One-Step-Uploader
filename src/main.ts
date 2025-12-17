@@ -3,9 +3,9 @@
  * Cross-platform compatible (Desktop + Mobile)
  */
 
-import { Plugin } from "obsidian";
+import { Plugin, MarkdownView } from "obsidian";
 import {
-  PasteAndGoSettingTab,
+  OneStepUploaderSettingTab,
   SettingsManager
 } from "./settings";
 import { R2Adapter } from "./adapter";
@@ -15,7 +15,7 @@ import { PasteHandler } from "./handler/pasteHandler";
 
 const logger = Logger.getInstance();
 
-export default class PasteAndGoPlugin extends Plugin {
+export default class OneStepUploaderPlugin extends Plugin {
   private settingsManager: SettingsManager;
   private r2Adapter: R2Adapter;
   private localRepository: LocalRepository;
@@ -23,7 +23,7 @@ export default class PasteAndGoPlugin extends Plugin {
   private pasteHandler: PasteHandler;
 
   async onload() {
-    logger.info("Loading Paste And Go Plugin");
+    logger.info("Loading One Step Uploader Plugin");
 
     // Initialize settings manager
     this.settingsManager=SettingsManager.initialize(this);
@@ -42,24 +42,52 @@ export default class PasteAndGoPlugin extends Plugin {
     this.pasteHandler = new PasteHandler(this.localRepository, this.remoteRepository);
     
     // Add settings tab
-    this.addSettingTab(new PasteAndGoSettingTab(this.app, this.testConnection.bind(this),this.onR2SettingsChange.bind(this)));
+    this.addSettingTab(new OneStepUploaderSettingTab(this.app, this,this.testConnection.bind(this),this.onR2SettingsChange.bind(this)));
     
     // Register paste event handler
     this.registerEvent(
-      this.app.workspace.on("editor-paste", this.pasteHandler.handle.bind(this))
+      // 注意参数名改为 info，因为它不一定是 view
+      this.app.workspace.on("editor-paste", (evt, editor, info) => {
+        const files = evt.clipboardData?.files;
+        
+        // 1. 基础检查：是否有文件
+        if (!files || files.length == 0) return;
+
+        // 2. 类型安全检查：确保当前是 MarkdownView
+        // 这一步解决了你的类型报错问题
+        const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+        if (!activeView) return; 
+
+        // 3. 执行逻辑
+        evt.preventDefault();
+        this.pasteHandler.handle(files, editor, activeView);
+      })
     );
 
     // Register drop event handler
     this.registerEvent(
-      this.app.workspace.on("editor-drop", this.pasteHandler.handle.bind(this))
+      this.app.workspace.on("editor-drop", (evt, editor, info) => {
+        const files = evt.dataTransfer?.files;
+        
+        if (!files || files.length == 0) return;
+
+        // 类型安全检查
+        const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+        if (!activeView) return;
+
+        evt.preventDefault();
+        this.pasteHandler.handle(files, editor, activeView);
+      })
     );
 
-    logger.info("Paste And Go Plugin loaded successfully");
+    logger.info("One Step Uploader Plugin loaded successfully");
   }
 
   onunload() {
-    logger.info("Unloading Paste And Go Plugin");
+    logger.info("Unloading One Step Uploader Plugin");
   }
+
+  
 
   /**
    * Test connection

@@ -9,39 +9,49 @@ export class ObsidianHttpHandler implements HttpHandler {
     
     // 必须实现 handle 方法
     async handle(request: HttpRequest, options?: HttpHandlerOptions): Promise<{ response: HttpResponse }> {
-        // 1. 构建完整的 URL
+        // 1. 构建 URL
         const queryString = this.buildQueryString(request.query || {});
         const port = request.port ? `:${request.port}` : "";
         const path = request.path.startsWith("/") ? request.path : `/${request.path}`;
         const url = `${request.protocol}//${request.hostname}${port}${path}${queryString ? `?${queryString}` : ""}`;
 
-        // 2. 准备 requestUrl 参数
+        // 2. 处理 Headers
+        // 必须浅拷贝一份，避免修改原对象
+        const headers: Record<string, string> = { ...request.headers };
+        
+        // Electron/Chromium 会自动管理 Host 和 Content-Length，手动设置常导致 ERR_INVALID_ARGUMENT
+        delete headers['host']; 
+        delete headers['content-length']; 
+
+        // 3. 准备 requestUrl 参数
         const reqOptions: RequestUrlParam = {
             url: url,
             method: request.method,
-            headers: request.headers,
-            // requestUrl 支持 string | ArrayBuffer。
-            // AWS SDK 的 body 可能是 Uint8Array, Buffer, string 或 stream。
-            // 在你的场景中（上传 Buffer），它通常是 Uint8Array 或 Buffer。
-            body: this.parseBody(request.body),
-            throw: false // 不要让 Obsidian 自动抛出错误，我们需要拿到 status code 返回给 SDK 处理
+            headers: headers,
+            throw: false
         };
 
-        // 3. 发送请求
+        // 之前的代码默认给 body 赋值 ""，这会导致 HEAD 请求报错
+        if (request.method !== 'GET' && request.method !== 'HEAD') {
+            reqOptions.body = this.parseBody(request.body);
+        }
+
+        // 调试日志：如果再次报错，打开控制台查看具体参数
+        // console.log("ObsidianHttpHandler Request:", reqOptions);
+
+        // 4. 发送请求
         const response = await requestUrl(reqOptions);
 
-        // 4. 将 Obsidian 的 response 转换为 AWS SDK 的 HttpResponse
-        // 注意：SDK 期望 headers 是 HeaderBag (Record<string, string>)
-        const headers: HeaderBag = {};
+        // 5. 转换响应
+        const responseHeaders: HeaderBag = {};
         for (const key in response.headers) {
-            headers[key.toLowerCase()] = response.headers[key];
+            responseHeaders[key.toLowerCase()] = response.headers[key];
         }
 
         return {
             response: new HttpResponse({
                 statusCode: response.status,
-                headers: headers,
-                // 将 ArrayBuffer 转回 Uint8Array，方便 SDK 解析
+                headers: responseHeaders,
                 body: new Uint8Array(response.arrayBuffer)
             })
         };

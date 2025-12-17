@@ -12,7 +12,7 @@ export enum LogLevel {
 export class Logger {
   private static instance: Logger;
   private logLevel: LogLevel = LogLevel.INFO;
-  private readonly pluginName = "R2 Image Uploader";
+  private readonly pluginName = "One Step Uploader";
 
   private constructor() {}
 
