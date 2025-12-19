@@ -7,7 +7,7 @@ export class LocalRepository {
   constructor(private app: App) {}
 
   /**
-   * 持久化图片到本地 Vault
+   * 持久化文件到本地 Vault
    */
   async save(
     arrayBuffer: ArrayBuffer,
@@ -29,8 +29,7 @@ export class LocalRepository {
         finalPath = `${attachmentFolder}/${baseName}_${counter}${ext ? `.${ext}` : ""}`;
         counter++;
       }
-
-      await this.app.vault.adapter.writeBinary(finalPath, new Uint8Array(arrayBuffer).buffer);
+      await this.app.vault.adapter.writeBinary(finalPath, arrayBuffer);
       logger.info("Saved to local repository", { path: finalPath });
       return finalPath;
     } catch (error) {
@@ -40,7 +39,7 @@ export class LocalRepository {
   }
 
   /**
-   * 删除本地图片
+   * 删除本地文件
    */
   async delete(path: string): Promise<void> {
     try {

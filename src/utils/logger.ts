@@ -11,7 +11,7 @@ export enum LogLevel {
 
 export class Logger {
   private static instance: Logger;
-  private logLevel: LogLevel = LogLevel.INFO;
+  private logLevel: LogLevel = LogLevel.DEBUG;
   private readonly pluginName = "One Step Uploader";
 
   private constructor() {}

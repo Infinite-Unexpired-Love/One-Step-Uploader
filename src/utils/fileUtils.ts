@@ -19,7 +19,7 @@ export function generateUniqueFileName(
     return `${safeName}_${timestamp}.${extension}`;
   }
 
-  return `image_${timestamp}_${randomStr}.${extension}`;
+  return `${timestamp}_${randomStr}.${extension}`;
 }
 
 /**

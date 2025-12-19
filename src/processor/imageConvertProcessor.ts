@@ -86,7 +86,7 @@ export class ImageConvertProcessor {
       };
 
       const compressionRatio = ((1 - processed.size / originalSize) * 100).toFixed(1);
-      logger.info("Image processed successfully", {
+      logger.debug("Image processed successfully", {
         originalSize: formatBytes(originalSize),
         processedSize: formatBytes(processed.size),
         compressionRatio: `${compressionRatio}%`,

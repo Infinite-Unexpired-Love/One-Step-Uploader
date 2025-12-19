@@ -8,38 +8,40 @@ export interface Replacement {
 }
 
 export class StringUtils {
-    /**
-   * Find image link position in editor
+  /**
+   * Find link position in editor (Supports both ![]() and []())
    */
-  static findImageLinkPosition(content: string, imagePath: string): Replacement | null {
+  static findLinkPosition(content: string, linkPath: string): Replacement | null {
     try {
       const lines = content.split("\n");
 
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
-        const imagePattern = this.createImagePattern(imagePath);
-        const match = line.match(imagePattern);
+        // 核心修改：使用支持普通链接的 Pattern
+        const linkPattern = this.createLinkPattern(linkPath);
+        const match = line.match(linkPattern);
 
         if (match) {
           const ch = line.indexOf(match[0]);
           return {
             oldLink: match[0],
-            newLink: "", // Will be filled later
+            newLink: "", 
             position: { line: i, ch },
           };
         }
       }
 
-      logger.debug("Image link position not found", { imagePath });
+      logger.debug("Link position not found", { linkPath });
       return null;
     } catch (error) {
-      logger.error("Failed to find image link position", error);
+      logger.error("Failed to find link position", error);
       return null;
     }
   }
 
   /**
    * Replace link at specific position
+   * (This method remains functionally same but is now logically applicable to both types)
    */
   static replaceLinkAtPosition(content: string, replacement: Replacement): string {
     try {
@@ -53,7 +55,7 @@ export class StringUtils {
 
       lines[line] = newLine;
 
-      logger.info("Link replaced at position", {
+      logger.debug("Link replaced at position", {
         line,
         ch,
         newLink: replacement.newLink,
@@ -67,41 +69,50 @@ export class StringUtils {
   }
 
   /**
-   * Create regex pattern for image markdown
+   * Create regex pattern for markdown links (Images or Regular links)
    */
-   static createImagePattern(imagePath: string): RegExp {
-    // Escape special regex characters in path
-    const escapedPath = imagePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  static createLinkPattern(linkPath: string): RegExp {
+    // 转义路径中的特殊正则字符
+    const escapedPath = linkPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-    // Match: ![alt text](path) or ![](path)
-    // Also handle encoded paths
-    return new RegExp(`!\\[[^\\]]*\\]\\([^)]*${escapedPath}[^)]*\\)`, "g");
+    /**
+     * 正则解析：
+     * !?          -> 匹配 0 个或 1 个 "!" (以此支持图片和普通链接)
+     * \[[^\]]*\]  -> 匹配方括号及其中内容 [text]
+     * \(          -> 匹配左圆括号
+     * [^)]* -> 匹配路径前可能存在的任何字符（如编码后的字符）
+     * ${escapedPath} -> 匹配目标路径
+     * [^)]* -> 匹配路径后可能存在的任何字符
+     * \)          -> 匹配右圆括号
+     */
+    return new RegExp(`!?\\[[^\\]]*\\]\\([^)]*${escapedPath}[^)]*\\)`, "g");
   }
 
   /**
-   * Extract image path from markdown link
+   * Extract path from markdown link (Compatible with ![]() and []())
    */
-  static extractImagePath(markdownLink: string): string | null {
-    const match = markdownLink.match(/!\[.*?\]\(([^)]+)\)/);
+  static extractPath(markdownLink: string): string | null {
+    // 匹配可选的 ! 开头的链接格式
+    const match = markdownLink.match(/!?\[.*?\]\(([^)]+)\)/);
     return match ? match[1] : null;
   }
 
   /**
-   * Check if line contains image markdown
+   * Check if line contains any markdown link
    */
-  static isImageMarkdown(line: string): boolean {
-    return /!\[.*?\]\(.+?\)/.test(line);
+  static isMarkdownLink(line: string): boolean {
+    return /!?\[.*?\]\(.+?\)/.test(line);
   }
 
   /**
-   * Get all image links
+   * Get all links (both image and regular)
    */
-  static getAllImageLinks(content: string): string[] {
-    const imagePattern = /!\[.*?\]\(([^)]+)\)/g;
+  static getAllLinks(content: string): string[] {
+    const linkPattern = /!?\[.*?\]\(([^)]+)\)/g;
     const links: string[] = [];
 
     let match;
-    while ((match = imagePattern.exec(content)) !== null) {
+    while ((match = linkPattern.exec(content)) !== null) {
       links.push(match[1]);
     }
 
@@ -109,10 +120,11 @@ export class StringUtils {
   }
 
   /**
-   * Format markdown image link
+   * Format markdown link
    */
-  static formatImageLink(url: string, alt: string = ""): string {
-    return `![${alt}](${url})`;
+  static formatLink(url: string, text: string = "", isImage: boolean = false): string {
+    const prefix = isImage ? "!" : "";
+    return `${prefix}[${text}](${url})`;
   }
 
   /**
@@ -121,4 +133,5 @@ export class StringUtils {
   static isExternalUrl(url: string): boolean {
     return url.startsWith("http://") || url.startsWith("https://");
   }
+  
 }
