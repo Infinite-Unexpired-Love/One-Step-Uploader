@@ -1,0 +1,10 @@
+{
+  "id": "One Step Uploader",
+  "name": "One Step Uploader",
+  "version": "1.0.0",
+  "minAppVersion": "0.15.0",
+  "description": "Automatically compresses images (WebP/AVIF) and uploads them upon pasting, and supports file uploading",
+  "author": "Lion Xiao",
+  "authorUrl": "https://github.com/Infinite-Unexpired-Love/One-Step-Uploader",
+  "isDesktopOnly": false
+}

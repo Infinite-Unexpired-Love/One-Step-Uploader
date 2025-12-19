@@ -174,17 +174,6 @@ export class OneStepUploaderSettingTab extends PluginSettingTab {
         "deleteLocalAfterUpload"
       );
 
-      this.addNumberInputEL(
-          "Retry Attempts", 
-          "Number of retry attempts", 
-          "retryAttempts"
-      );
-
-      this.addNumberInputEL(
-          "Timeout (seconds)", 
-          "Upload timeout in seconds", 
-          "timeoutSeconds"
-      );
     }
 
   }

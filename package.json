@@ -1,7 +1,7 @@
 {
-  "name": "obsidian-r2-uploader",
+  "name": "one-step-uploader",
   "version": "1.0.0",
-  "description": "Obsidian plugin for uploading images to Cloudflare R2",
+  "description": "Automatically compresses images (WebP/AVIF) and uploads them upon pasting, and supports file uploading",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",

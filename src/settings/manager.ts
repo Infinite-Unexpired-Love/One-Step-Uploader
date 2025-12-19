@@ -68,8 +68,6 @@ export class SettingsManager {
         publicBaseUrl: this.settings.publicBaseUrl,
         enableUpload: this.settings.enableUpload,
         deleteLocalAfterUpload: this.settings.deleteLocalAfterUpload,
-        retryAttempts: this.settings.retryAttempts,
-        timeoutSeconds: this.settings.timeoutSeconds,
     };
   }
 

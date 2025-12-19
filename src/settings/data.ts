@@ -21,9 +21,6 @@ export interface UploadSettings {
   enableUpload: boolean;
   deleteLocalAfterUpload: boolean;
 
-  // Advanced
-  retryAttempts: number;
-  timeoutSeconds: number;
 }
 
 export interface ImageProcessingSettings {
@@ -57,10 +54,6 @@ export const DEFAULT_UPLOAD_SETTINGS: UploadSettings = {
   publicBaseUrl: "https://your-domain.com",
   enableUpload: true,
   deleteLocalAfterUpload: false,
-
-  // Advanced
-  retryAttempts: 3,
-  timeoutSeconds: 30,
 };
 
 export const DEFAULT_IMAGE_PROCESSING_SETTINGS: ImageProcessingSettings = {
